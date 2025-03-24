@@ -8,6 +8,7 @@ import SuccessModal from "./SuccessModal";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { apiRequest } from "@/lib/queryClient";
+import { Language } from "@shared/schema";
 
 const INITIAL_COMPLAINT_DATA = {
   trackingCode: "",
@@ -15,14 +16,41 @@ const INITIAL_COMPLAINT_DATA = {
   email: "",
   phone: "",
   address: "",
-  incidentType: "unknown",
+  incidentType: "unknown", // Will be determined automatically from the description
   incidentDate: "",
   incidentDescription: "",
   financialLoss: "",
   partiesInvolved: "",
   additionalNotes: "",
   contactConsent: false,
-  language: "english"
+  language: "english" as Language
+};
+
+// Welcome messages in different languages
+const welcomeMessages: Record<Language, string> = {
+  english: "Hello! I'm your CyberShield assistant. I'll help you file a cybersecurity complaint. Can you please tell me your full name?",
+  hindi: "नमस्ते! मैं आपका साइबर शील्ड सहायक हूँ। मैं आपको साइबर सुरक्षा शिकायत दर्ज करने में मदद करूँगा। कृपया अपना पूरा नाम बताएं?",
+  bengali: "হ্যালো! আমি আপনার সাইবার শিল্ড সহায়ক। আমি আপনাকে সাইবার নিরাপত্তা অভিযোগ দাখিল করতে সাহায্য করব। অনুগ্রহ করে আপনার পুরো নাম বলুন?",
+  marathi: "नमस्कार! मी तुमचा सायबर शील्ड सहाय्यक आहे. मी तुम्हाला सायबर सुरक्षा तक्रार दाखल करण्यात मदत करेन. कृपया तुमचे पूर्ण नाव सांगा?",
+  telugu: "హలో! నేను మీ సైబర్ షీల్డ్ సహాయకుడిని. నేను మీకు సైబర్ సెక్యూరిటీ ఫిర్యాదు దాఖలు చేయడంలో సహాయం చేస్తాను. దయచేసి మీ పూర్తి పేరు చెప్పండి?",
+  tamil: "வணக்கம்! நான் உங்கள் சைபர் ஷீல்ட் உதவியாளர். இணையப் பாதுகாப்பு புகாரைத் தாக்கல் செய்ய நான் உங்களுக்கு உதவுவேன். உங்கள் முழுப் பெயரைச் சொல்லுங்கள்?",
+  gujarati: "હેલો! હું તમારો સાયબર શિલ્ડ સહાયક છું. હું તમને સાયબર સુરક્ષા ફરિયાદ દાખલ કરવામાં મદદ કરીશ. કૃપા કરીને તમારું પૂરું નામ જણાવો?",
+  urdu: "ہیلو! میں آپ کا سائبر شیلڈ اسسٹنٹ ہوں۔ میں آپ کو سائبر سیکیورٹی شکایت درج کرنے میں مدد کروں گا۔ براہ کرم اپنا پورا نام بتائیں؟",
+  kannada: "ಹಲೋ! ನಾನು ನಿಮ್ಮ ಸೈಬರ್ ಶೀಲ್ಡ್ ಸಹಾಯಕ. ನಾನು ನಿಮಗೆ ಸೈಬರ್ ಸೆಕ್ಯುರಿಟಿ ದೂರನ್ನು ಸಲ್ಲಿಸಲು ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರನ್ನು ಹೇಳಿ?",
+  odia: "ନମସ୍କାର! ମୁଁ ଆପଣଙ୍କର ସାଇବର ସିଲ୍ଡ ସହାୟକ। ମୁଁ ଆପଣଙ୍କୁ ସାଇବର ସୁରକ୍ଷା ଅଭିଯୋଗ ଦାଖଲ କରିବାରେ ସାହାଯ୍ୟ କରିବି। ଦୟାକରି ଆପଣଙ୍କ ପୂର୍ଣ୍ଣ ନାମ କୁହନ୍ତୁ?",
+  punjabi: "ਸਤਿ ਸ਼੍ਰੀ ਅਕਾਲ! ਮੈਂ ਤੁਹਾਡਾ ਸਾਈਬਰ ਸ਼ੀਲਡ ਸਹਾਇਕ ਹਾਂ। ਮੈਂ ਤੁਹਾਨੂੰ ਸਾਈਬਰ ਸੁਰੱਖਿਆ ਸ਼ਿਕਾਇਤ ਦਰਜ ਕਰਨ ਵਿੱਚ ਮਦਦ ਕਰਾਂਗਾ। ਕਿਰਪਾ ਕਰਕੇ ਆਪਣਾ ਪੂਰਾ ਨਾਮ ਦੱਸੋ?",
+  malayalam: "ഹലോ! ഞാൻ നിങ്ങളുടെ സൈബർ ഷീൽഡ് അസിസ്റ്റന്റ് ആണ്. ഞാൻ നിങ്ങളെ സൈബർ സെക്യൂരിറ്റി പരാതി ഫയൽ ചെയ്യാൻ സഹായിക്കും. ദയവായി നിങ്ങളുടെ മുഴുവൻ പേര് പറയുക?",
+  assamese: "নমস্কাৰ! মই আপোনাৰ চাইবাৰ শ্বীল্ড সহায়ক। মই আপোনাক চাইবাৰ সুৰক্ষা অভিযোগ দাখিল কৰাত সহায় কৰিম। অনুগ্ৰহ কৰি আপোনাৰ সম্পূৰ্ণ নাম কওক?",
+  maithili: "हेलौ! हम अहाँक साइबर शील्ड सहायक छी। हम अहाँकेँ साइबर सुरक्षा शिकायत दर्ज करबामे मदद करब। कृपया अपन पूरा नाम बताउ?",
+  sanskrit: "नमस्ते! अहं भवतः साइबरशील्ड सहायकः अस्मि। अहं भवन्तं साइबर सुरक्षा अभियोगं दाखिल कर्तुं सहायं करिष्यामि। कृपया भवतः पूर्णं नाम वदतु?",
+  kashmiri: "سلام! میں تُہاں دا سائبر شیلڈ مدد گار آں۔ میں تہانوں سائبر سکیورٹی شکایت داخل کرن وچ مدد کراں گا۔ مہربانی کر کے اپنا پورا ناں دسو؟",
+  nepali: "नमस्कार! म तपाईंको साइबर शिल्ड सहायक हुँ। म तपाईंलाई साइबर सुरक्षा उजुरी दायर गर्न मद्दत गर्नेछु। कृपया तपाईंको पूरा नाम बताउनुहोस्?",
+  konkani: "नमस्कार! हांव तुमचो सायबर शील्ड सहाय्यक आसा. हांव तुमकां सायबर सुरक्षा तक्रार दाखल करपाक मदत करतलो. कृपया तुमचें संपूर्ण नांव सांगचें?",
+  sindhi: "سلام! مان توهان جو سائبر شيلڊ مددگار آهيان. مان توهان کي سائبر سيڪيورٽي شڪايت داخل ڪرڻ ۾ مدد ڪندس. مهرباني ڪري پنهنجو پورو نالو ٻڌايو؟",
+  bodo: "हालो! आं नोंनि cybershield मददगिरि। आं नोंखौ साइबार रैखा हानजायनाय दाखिल खालामनो हेफाजाब होगोन। अन्नानै नोंनि आखाय मुं बुङो?",
+  dogri: "हैलो! मैं तुसेंदा साइबर शील्ड सहायक आं। मैं तुसेंगी साइबर सुरक्षा शिकायत दायर करने च मदद करांगा। किरपा करी अपना पूरा नां दस्सो?",
+  manipuri: "হেল্লো! ঐ নঙগী সাইবর শীল্দ মতেং পাঙবনি। ঐনা নঙবু সাইবর সেকুরিটি ৱাকৎ ফাইল তৌবদা মতেং পাঙগনি। নঙগী মপূং ফাবা মিং হায়বিয়ু?",
+  santhali: "जोहार! इञ आमाक् साइबर शील्ड गोड़ो कानाञ। इञ आमके साइबर सुरक्षा दुख दाखिल लागित् गोड़ो इञाम। दया कात्ते आमाक् पुरा ञुतुम मेन मे?"
 };
 
 interface ComplaintFilingProps {
@@ -36,7 +64,10 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
   const [showComplaintInterface, setShowComplaintInterface] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [inputMethod, setInputMethod] = useState<"text" | "voice">("text");
-  const [complaintData, setComplaintData] = useState(INITIAL_COMPLAINT_DATA);
+  const [complaintData, setComplaintData] = useState({
+    ...INITIAL_COMPLAINT_DATA,
+    language: selectedLanguage.toLowerCase() as Language
+  });
   const [messages, setMessages] = useState<{ content: string; sender: "user" | "bot" }[]>([]);
   const [currentInput, setCurrentInput] = useState("");
   const [formComplete, setFormComplete] = useState(false);
@@ -49,23 +80,48 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
     transcript, 
     startListening, 
     stopListening,
-    hasRecognitionSupport 
+    hasRecognitionSupport,
+    currentLanguage,
+    setLanguage
   } = useSpeechRecognition();
 
-  const { speak, cancel, speaking, supported: hasSpeechSynthesisSupport } = useSpeechSynthesis();
+  const { 
+    speak, 
+    cancel, 
+    speaking, 
+    supported: hasSpeechSynthesisSupport,
+    setLanguage: setSpeechLanguage 
+  } = useSpeechSynthesis();
 
-  // Initialize chat with a welcome message
+  // Set current language when selectedLanguage changes
   useEffect(() => {
+    const languageCode = selectedLanguage.toLowerCase() as Language;
+    setLanguage(languageCode);
+    setSpeechLanguage(languageCode);
+    
+    // Update complaint data with the new language
+    setComplaintData(prev => ({
+      ...prev,
+      language: languageCode
+    }));
+  }, [selectedLanguage, setLanguage, setSpeechLanguage]);
+
+  // Initialize chat with a welcome message in the selected language
+  useEffect(() => {
+    const selectedLang = selectedLanguage.toLowerCase() as Language;
+    const welcomeMsg = welcomeMessages[selectedLang] || welcomeMessages.english;
+    
     const welcomeMessage = {
-      content: "Hello! I'm your CyberShield assistant. I'll help you file a cybersecurity complaint. Can you please tell me your full name?",
+      content: welcomeMsg,
       sender: "bot" as const
     };
+    
     setMessages([welcomeMessage]);
     
     if (isSpeakerActive && hasSpeechSynthesisSupport) {
-      speak(welcomeMessage.content);
+      speak(welcomeMsg, selectedLang as Language);
     }
-  }, []);
+  }, [selectedLanguage]);
 
   // Listen for transcript changes when voice input is active
   useEffect(() => {
@@ -217,9 +273,10 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
       
       setMessages(prev => [...prev, botMessage]);
       
-      // Speak the response if speaker is active
+      // Speak the response if speaker is active, using the selected language
       if (isSpeakerActive && hasSpeechSynthesisSupport) {
-        speak(botResponse);
+        const selectedLang = selectedLanguage.toLowerCase() as Language;
+        speak(botResponse, selectedLang);
       }
     }, 1000);
     
@@ -266,11 +323,22 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
 
   const fileNewComplaint = () => {
     setShowSuccessModal(false);
-    setComplaintData(INITIAL_COMPLAINT_DATA);
+    
+    // Set complaint data with current language
+    const languageCode = selectedLanguage.toLowerCase() as Language;
+    setComplaintData({
+      ...INITIAL_COMPLAINT_DATA,
+      language: languageCode
+    });
+    
+    // Get welcome message in selected language
+    const welcomeMsg = welcomeMessages[languageCode] || welcomeMessages.english;
+    
     setMessages([{
-      content: "Hello! I'm your CyberShield assistant. I'll help you file a new cybersecurity complaint. Can you please tell me your full name?",
+      content: welcomeMsg,
       sender: "bot"
     }]);
+    
     setFormComplete(false);
   };
 
@@ -476,7 +544,8 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
                   sender: "bot"
                 }]);
                 if (isSpeakerActive && hasSpeechSynthesisSupport) {
-                  speak("Which section would you like to edit? You can say 'personal information', 'incident details', or 'additional information'.");
+                  const selectedLang = selectedLanguage.toLowerCase() as Language;
+                  speak("Which section would you like to edit? You can say 'personal information', 'incident details', or 'additional information'.", selectedLang);
                 }
               }}
               onSubmit={handleSubmitForm}

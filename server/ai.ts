@@ -39,10 +39,14 @@ const safetySettings = [
 
 /**
  * Analyzes the incident description to determine the cybersecurity complaint type
+ * This enhanced version automatically detects the type from the description without asking the user
  */
 export async function analyzeIncidentType(description: string): Promise<ComplaintType> {
   try {
-    const prompt = `You are a cybersecurity incident classifier. Based on the incident description, classify it into one of these categories: 'phishing_attack', 'ransomware', 'data_breach', 'identity_theft', or 'unknown'. Respond with only the category name.
+    const prompt = `You are a cybersecurity incident classifier specializing in Indian cybersecurity incidents. 
+Based on the incident description, classify it into one of these categories: 'phishing_attack', 'ransomware', 'data_breach', 'identity_theft', or 'unknown'.
+Even if the description is in an Indian language, try to identify keywords that might indicate the type of attack.
+Respond with only the category name, nothing else.
 
 Description: ${description}`;
 
@@ -50,7 +54,7 @@ Description: ${description}`;
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       safetySettings,
       generationConfig: {
-        temperature: 0.3,
+        temperature: 0.2, // Lower temperature for more deterministic responses
         maxOutputTokens: 50,
       },
     });
@@ -58,6 +62,13 @@ Description: ${description}`;
     const response = result.response;
     const text = response.text().trim().toLowerCase();
     
+    // Check if the response contains any of our categories (even if it's not an exact match)
+    if (text.includes('phishing')) return 'phishing_attack';
+    if (text.includes('ransom')) return 'ransomware';
+    if (text.includes('data') && text.includes('breach')) return 'data_breach';
+    if (text.includes('identity') && text.includes('theft')) return 'identity_theft';
+    
+    // If we have a direct match
     if (text === 'phishing_attack' || 
         text === 'ransomware' || 
         text === 'data_breach' || 
@@ -65,6 +76,7 @@ Description: ${description}`;
       return text as ComplaintType;
     }
     
+    // If no valid category is detected
     return 'unknown';
   } catch (error) {
     console.error('Error analyzing incident type:', error);
@@ -73,37 +85,48 @@ Description: ${description}`;
 }
 
 /**
- * Extracts complaint information from user text input
+ * Extracts complaint information from user text input in any language
+ * This enhanced version also determines the complaint type from the description
  */
 export async function extractComplaintInfo(text: string): Promise<any> {
   try {
-    const prompt = `You are an information extraction assistant for cybersecurity complaints. Extract the following information from the user's text if present:
+    const prompt = `You are an information extraction assistant specializing in cybersecurity complaints in India. 
+The user's text may be in any of the 22 official Indian languages. Regardless of the language, extract the following information if present:
+
 - fullName: The person's full name
-- email: The email address
-- phone: The phone number
-- address: The physical address
-- incidentDate: When the incident happened
-- incidentDescription: Description of what happened
+- email: The email address (if present)
+- phone: The phone number (if present)
+- address: The physical address (if present)
+- incidentDate: When the incident happened (if present)
+- incidentDescription: Detailed description of what happened
 - financialLoss: Amount of financial loss (if mentioned)
 - partiesInvolved: Other parties involved (if mentioned)
 
-Return the extracted information as a JSON object with these fields. If a field is not found in the text, exclude it from the response.
+Additionally, analyze the incident description to determine the cybersecurity complaint type. Classify it into one of these categories:
+- phishing_attack: Attempts to deceive users to reveal sensitive information
+- ransomware: Malware that encrypts files and demands ransom
+- data_breach: Unauthorized access to sensitive data
+- identity_theft: Theft of personal information for fraudulent purposes
+- unknown: If the incident doesn't clearly fit into the above categories
+
+Return all extracted information as a JSON object. If a field is not found in the text, exclude it from the response.
 
 User text: ${text}
 
-Response format example:
+Response format:
 {
-  "fullName": "John Doe",
-  "email": "john@example.com",
-  "incidentDescription": "My account was hacked..."
+  "fullName": "User's name if provided",
+  "email": "user@example.com",
+  "incidentDescription": "Description of what happened...",
+  "incidentType": "one of: phishing_attack, ransomware, data_breach, identity_theft, or unknown"
 }`;
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       safetySettings,
       generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 500,
+        temperature: 0.2,
+        maxOutputTokens: 800,
       },
     });
 
@@ -114,7 +137,20 @@ Response format example:
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     const jsonString = jsonMatch ? jsonMatch[0] : "{}";
     
-    return JSON.parse(jsonString);
+    try {
+      const extractedInfo = JSON.parse(jsonString);
+      
+      // If incidentDescription is present but incidentType is not,
+      // attempt to determine the incident type
+      if (extractedInfo.incidentDescription && !extractedInfo.incidentType) {
+        extractedInfo.incidentType = await analyzeIncidentType(extractedInfo.incidentDescription);
+      }
+      
+      return extractedInfo;
+    } catch (jsonError) {
+      console.error('Error parsing JSON from response:', jsonError);
+      return {};
+    }
   } catch (error) {
     console.error('Error extracting information:', error);
     return {};
