@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberShield - Cybersecurity Complaint Filing</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .chat-bubble {
+      position: relative;
+    }
+    .chat-bubble::after {
+      content: '';
+      position: absolute;
+      left: -10px;
+      top: 50%;
+      width: 0;
+      height: 0;
+      border: 10px solid transparent;
+      border-right-color: #0A62D0;
+      border-left: 0;
+      margin-top: -10px;
+    }
+    .user-bubble::after {
+      left: auto;
+      right: -10px;
+      border-right-color: transparent;
+      border-left-color: #E2E8F0;
+      border-right: 0;
+    }
+    .avatar-glow {
+      box-shadow: 0 0 15px 5px rgba(0, 198, 183, 0.3);
+    }
+    .wave {
+      animation: wave 1.5s infinite;
+    }
+    @keyframes wave {
+      0%, 100% { transform: translateY(0); }
+      25% { transform: translateY(-5px); }
+      75% { transform: translateY(5px); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
