@@ -191,26 +191,35 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
     }
   }, [selectedLanguage]);
 
-  // Listen for transcript changes when voice input is active
+  // Listen for transcript changes when voice input is active and update in real-time
   useEffect(() => {
-    if (transcript && isListening && inputMethod === "voice") {
-      setCurrentInput(transcript);
+    if (inputMethod === "voice") {
+      // Always update the current input with the transcript while listening
+      if (transcript) {
+        setCurrentInput(transcript);
+      }
     }
-  }, [transcript, isListening]);
+  }, [transcript, inputMethod]);
 
   // Handle voice input when the transcript is updated
   // Using a ref to track the previous state to avoid unnecessary calls
   const prevIsListeningRef = React.useRef(isListening);
+  const lastTranscriptRef = React.useRef(transcript);
   
   useEffect(() => {
     // Only trigger when transitioning from listening to not listening (speech ended)
     // and if we have a transcript to process
-    if (prevIsListeningRef.current && !isListening && transcript && inputMethod === "voice") {
+    if (prevIsListeningRef.current && !isListening && transcript && 
+        transcript === lastTranscriptRef.current && inputMethod === "voice") {
+      // Submit the message when speaking ends
       handleSendMessage();
     }
     
-    // Update the ref with the current state for the next render
+    // Update the refs with the current state for the next render
     prevIsListeningRef.current = isListening;
+    if (transcript) {
+      lastTranscriptRef.current = transcript;
+    }
   }, [isListening, transcript, inputMethod]);
 
   const selectInputMethod = (method: "text" | "voice") => {
@@ -256,21 +265,30 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
   const handleSendMessage = async () => {
     if (!currentInput.trim()) return;
     
+    // Store the current input value in a variable to prevent issues with state updates
+    const inputText = currentInput;
+    
     // Add user message to chat
     const userMessage = {
-      content: currentInput,
+      content: inputText,
       sender: "user" as const
     };
     
     setMessages(prev => [...prev, userMessage]);
     
+    // Clear input immediately to provide better user feedback
+    setCurrentInput("");
+    
     // Process the message - extract information
     try {
+      // Get the language in lowercase for consistency
+      const languageCode = selectedLanguage.toLowerCase() as Language;
+      
       // Send both the text and the current language to the server
       // This allows the server to know which language to translate from
       const response = await apiRequest("POST", "/api/analyze-text", { 
-        text: currentInput,
-        language: selectedLanguage.toLowerCase()
+        text: inputText,
+        language: languageCode
       });
       
       const data = await response.json();
@@ -301,23 +319,23 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
     const messages = messagesForLanguage;
     
     // Very simple state machine for the conversation flow
-    if (!complaintData.fullName && currentInput.length > 0) {
-      const newData = { ...complaintData, fullName: currentInput };
+    if (!complaintData.fullName && inputText.length > 0) {
+      const newData = { ...complaintData, fullName: inputText };
       setComplaintData(newData);
       botResponse = messages.askEmail;
       formUpdated = true;
-    } else if (!complaintData.email && currentInput.includes("@")) {
-      const newData = { ...complaintData, email: currentInput };
+    } else if (!complaintData.email && inputText.includes("@")) {
+      const newData = { ...complaintData, email: inputText };
       setComplaintData(newData);
       botResponse = messages.askPhone;
       formUpdated = true;
-    } else if (!complaintData.phone && /\d/.test(currentInput)) {
-      const newData = { ...complaintData, phone: currentInput };
+    } else if (!complaintData.phone && /\d/.test(inputText)) {
+      const newData = { ...complaintData, phone: inputText };
       setComplaintData(newData);
       botResponse = messages.askIncident;
       formUpdated = true;
-    } else if (!complaintData.incidentDescription && currentInput.length > 10) {
-      const newData = { ...complaintData, incidentDescription: currentInput };
+    } else if (!complaintData.incidentDescription && inputText.length > 10) {
+      const newData = { ...complaintData, incidentDescription: inputText };
       setComplaintData(newData);
       botResponse = messages.askDate;
       formUpdated = true;
@@ -329,7 +347,7 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
       botResponse = messages.askFinancialLoss;
       formUpdated = true;
     } else if (!complaintData.financialLoss) {
-      const newData = { ...complaintData, financialLoss: currentInput };
+      const newData = { ...complaintData, financialLoss: inputText };
       setComplaintData(newData);
       
       // Enable buttons since we have the minimum required info
@@ -337,19 +355,19 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
       
       botResponse = messages.formComplete;
       formUpdated = true;
-    } else if (currentInput.toLowerCase().includes("edit")) {
-      if (currentInput.toLowerCase().includes("name")) {
+    } else if (inputText.toLowerCase().includes("edit")) {
+      if (inputText.toLowerCase().includes("name")) {
         botResponse = messages.editName;
-      } else if (currentInput.toLowerCase().includes("email")) {
+      } else if (inputText.toLowerCase().includes("email")) {
         botResponse = messages.editEmail;
-      } else if (currentInput.toLowerCase().includes("phone")) {
+      } else if (inputText.toLowerCase().includes("phone")) {
         botResponse = messages.editPhone;
-      } else if (currentInput.toLowerCase().includes("description") || currentInput.toLowerCase().includes("incident")) {
+      } else if (inputText.toLowerCase().includes("description") || inputText.toLowerCase().includes("incident")) {
         botResponse = messages.editIncident;
       } else {
         botResponse = messages.editWhich;
       }
-    } else if (currentInput.toLowerCase().includes("submit")) {
+    } else if (inputText.toLowerCase().includes("submit")) {
       handleSubmitForm();
       botResponse = messages.submitting;
     } else {

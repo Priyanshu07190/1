@@ -88,10 +88,15 @@ Description: ${description}`;
  * Extracts complaint information from user text input in any language
  * This enhanced version also determines the complaint type from the description
  */
-export async function extractComplaintInfo(text: string): Promise<any> {
+export async function extractComplaintInfo(text: string, language?: Language): Promise<any> {
   try {
+    // Include language information in the prompt if available
+    const languagePrompt = language 
+      ? `The user's text is in ${language} language. ` 
+      : `The user's text may be in any of the 22 official Indian languages. `;
+    
     const prompt = `You are an information extraction assistant specializing in cybersecurity complaints in India. 
-The user's text may be in any of the 22 official Indian languages. Regardless of the language, extract the following information if present:
+${languagePrompt}Translate from the source language and extract the following information in English if present:
 
 - fullName: The person's full name
 - email: The email address (if present)
@@ -109,7 +114,7 @@ Additionally, analyze the incident description to determine the cybersecurity co
 - identity_theft: Theft of personal information for fraudulent purposes
 - unknown: If the incident doesn't clearly fit into the above categories
 
-Return all extracted information as a JSON object. If a field is not found in the text, exclude it from the response.
+Return all extracted information as a JSON object with values in English regardless of the input language. If a field is not found in the text, exclude it from the response.
 
 User text: ${text}
 
