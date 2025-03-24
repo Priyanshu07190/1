@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import LanguageSelector from "@/components/LanguageSelector";
 import HomePage from "@/components/HomePage";
@@ -25,11 +25,19 @@ export default function LandingPage() {
     // This prevents the "page not found" error
   };
 
-  // Handle navigation
+  // Handle navigation - This is called from within component buttons
   const handleNavigate = (to: string) => {
+    // First update the location which then triggers the useEffect
+    setLocation(to);
+    
+    // Explicitly set the screen based on the route to avoid any race conditions
     switch (to) {
       case "/":
-        setScreen("home");
+        if (selectedLanguage) {
+          setScreen("home");
+        } else {
+          setScreen("language");
+        }
         break;
       case "/filing":
         setScreen("filing");
@@ -38,27 +46,45 @@ export default function LandingPage() {
         setScreen("track");
         break;
       default:
-        setScreen("home");
+        if (selectedLanguage) {
+          setScreen("home");
+        } else {
+          setScreen("language");
+        }
     }
-    
-    // Update URL to reflect the change
-    setLocation(to);
   };
 
   // Handle change language
   const handleChangeLanguage = () => {
+    // Update the screen first to avoid any race conditions
     setScreen("language");
+    // Then update the location to match
     setLocation("/");
   };
 
-  // Track URL changes
-  if (location === "/" && screen !== "language" && selectedLanguage) {
-    setScreen("home");
-  } else if (location === "/filing" && screen !== "filing") {
-    setScreen("filing");
-  } else if (location === "/track" && screen !== "track") {
-    setScreen("track");
-  }
+  // Track URL changes using useEffect instead of in the render function
+  // This prevents infinite re-renders
+  useEffect(() => {
+    // Only synchronize the screen state with the URL location if needed
+    let newScreen = screen; // Start with current screen
+    
+    if (location === "/") {
+      if (selectedLanguage && screen !== "language") {
+        newScreen = "home";
+      } else if (!selectedLanguage) {
+        newScreen = "language";
+      }
+    } else if (location === "/filing") {
+      newScreen = "filing";
+    } else if (location === "/track") {
+      newScreen = "track";
+    }
+    
+    // Only update state if we need to change screens
+    if (newScreen !== screen) {
+      setScreen(newScreen);
+    }
+  }, [location, selectedLanguage, screen]);
 
   // Choose which screen to render
   const renderScreen = () => {

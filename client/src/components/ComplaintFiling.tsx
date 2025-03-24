@@ -199,11 +199,19 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
   }, [transcript, isListening]);
 
   // Handle voice input when the transcript is updated
+  // Using a ref to track the previous state to avoid unnecessary calls
+  const prevIsListeningRef = React.useRef(isListening);
+  
   useEffect(() => {
-    if (transcript && !isListening && inputMethod === "voice") {
+    // Only trigger when transitioning from listening to not listening (speech ended)
+    // and if we have a transcript to process
+    if (prevIsListeningRef.current && !isListening && transcript && inputMethod === "voice") {
       handleSendMessage();
     }
-  }, [isListening]);
+    
+    // Update the ref with the current state for the next render
+    prevIsListeningRef.current = isListening;
+  }, [isListening, transcript, inputMethod]);
 
   const selectInputMethod = (method: "text" | "voice") => {
     setInputMethod(method);
@@ -280,7 +288,9 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
     const languageCode = selectedLanguage.toLowerCase() as Language;
     // Make sure we have messages for this language, fall back to English if not
     const dialogMessagesForLanguage = dialogMessages[languageCode];
-    const messages = dialogMessagesForLanguage ? dialogMessagesForLanguage : dialogMessages.english;
+    // Add null check for dialogMessages to fix TypeScript errors
+    const messagesForLanguage = dialogMessagesForLanguage ? dialogMessagesForLanguage : (dialogMessages.english || {});
+    const messages = messagesForLanguage;
     
     // Very simple state machine for the conversation flow
     if (!complaintData.fullName && currentInput.length > 0) {
