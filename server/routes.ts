@@ -2,27 +2,39 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertComplaintSchema, trackingSchema } from "@shared/schema";
-import { analyzeIncidentType, extractComplaintInfo } from "./ai";
-import nodemailer from 'nodemailer';
+import { analyzeIncidentType, extractComplaintInfo, sendFIREmail, getSafetyPrecautions } from "./ai";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
+import nodemailer from 'nodemailer';
 
 // For development, use ethereal.email
 let transporter: nodemailer.Transporter;
 
 async function createTestAccount() {
-  const testAccount = await nodemailer.createTestAccount();
-
-  // Create a SMTP transporter
-  transporter = nodemailer.createTransport({
-    host: "smtp.ethereal.email",
-    port: 587,
-    secure: false,
-    auth: {
-      user: testAccount.user,
-      pass: testAccount.pass,
-    }
-  });
+  try {
+    const testAccount = await nodemailer.createTestAccount();
+    
+    // Create a SMTP transporter
+    transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      }
+    });
+    console.log("Created test email account:", testAccount.user);
+  } catch (error) {
+    console.error("Failed to create test email account:", error);
+    // Fallback to a dummy transporter that logs emails
+    transporter = {
+      sendMail: (options: any) => {
+        console.log("Email would be sent:", options);
+        return Promise.resolve({ messageId: "dummy-id" });
+      }
+    } as any;
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -43,18 +55,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create the complaint
       const complaint = await storage.createComplaint(complaintData);
       
-      // Send confirmation email
+      // Send FIR email with safety precautions
       try {
-        await sendConfirmationEmail(complaint);
+        await sendFIREmail(complaint);
       } catch (emailError) {
-        console.error('Failed to send email:', emailError);
+        console.error('Failed to send FIR email:', emailError);
         // Continue processing even if email fails
       }
       
-      // Return the created complaint with tracking code
+      // Get safety precautions for frontend display
+      let safetyPrecautions: string[] = [];
+      try {
+        safetyPrecautions = await getSafetyPrecautions(complaint.incidentType);
+      } catch (precautionsError) {
+        console.error('Failed to get safety precautions:', precautionsError);
+      }
+      
+      // Return the created complaint with tracking code and safety precautions
       res.status(201).json({
         success: true,
-        complaint
+        complaint,
+        safetyPrecautions
       });
     } catch (error) {
       if (error instanceof ZodError) {
@@ -208,8 +229,10 @@ async function sendConfirmationEmail(complaint: any) {
   const info = await transporter.sendMail(mailOptions);
   console.log('Email sent:', info.messageId);
   
-  // For development, log the URL where the email can be viewed
-  console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
+  // For development, log the URL where the email can be viewed (if available)
+  if (typeof nodemailer.getTestMessageUrl === 'function') {
+    console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
+  }
   
   return info;
 }
