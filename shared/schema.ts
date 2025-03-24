@@ -9,7 +9,10 @@ export const users = pgTable("users", {
 });
 
 export const languages = pgEnum('language', [
-  'english', 'spanish', 'french', 'german', 'hindi', 'chinese'
+  'english', 'hindi', 'bengali', 'marathi', 'telugu', 'tamil', 'gujarati', 
+  'urdu', 'kannada', 'odia', 'punjabi', 'malayalam', 'assamese', 'maithili', 
+  'sanskrit', 'kashmiri', 'nepali', 'konkani', 'sindhi', 'bodo', 'dogri',
+  'manipuri', 'santhali'
 ]);
 
 export const complaintTypeEnum = pgEnum('complaint_type', [
@@ -63,4 +66,7 @@ export type Complaint = typeof complaints.$inferSelect;
 export type TrackingRequest = z.infer<typeof trackingSchema>;
 export type ComplaintType = 'phishing_attack' | 'ransomware' | 'data_breach' | 'identity_theft' | 'unknown';
 export type ComplaintStatus = 'received' | 'under_review' | 'under_investigation' | 'resolved' | 'closed';
-export type Language = 'english' | 'spanish' | 'french' | 'german' | 'hindi' | 'chinese';
+export type Language = 'english' | 'hindi' | 'bengali' | 'marathi' | 'telugu' | 'tamil' | 'gujarati' | 
+  'urdu' | 'kannada' | 'odia' | 'punjabi' | 'malayalam' | 'assamese' | 'maithili' | 
+  'sanskrit' | 'kashmiri' | 'nepali' | 'konkani' | 'sindhi' | 'bodo' | 'dogri' |
+  'manipuri' | 'santhali';
