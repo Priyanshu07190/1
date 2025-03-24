@@ -27,7 +27,15 @@ export default function LandingPage() {
 
   // Handle navigation - This is called from within component buttons
   const handleNavigate = (to: string) => {
-    // First update the location which then triggers the useEffect
+    // First check if language is selected, if not, stay on language selection
+    if (!selectedLanguage && to !== "/") {
+      // Show language selection first if trying to navigate without selecting language
+      setScreen("language");
+      setLocation("/");
+      return;
+    }
+    
+    // Update the location which then triggers the useEffect
     setLocation(to);
     
     // Explicitly set the screen based on the route to avoid any race conditions

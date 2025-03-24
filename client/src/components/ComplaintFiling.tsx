@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Shield, ArrowLeft, Globe, HelpCircle, Mic, Volume2, VolumeX, Send, Keyboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -266,15 +266,23 @@ export default function ComplaintFiling({ selectedLanguage, onChangeLanguage }: 
     
     // Process the message - extract information
     try {
-      const response = await apiRequest("POST", "/api/analyze-text", { text: currentInput });
+      // Send both the text and the current language to the server
+      // This allows the server to know which language to translate from
+      const response = await apiRequest("POST", "/api/analyze-text", { 
+        text: currentInput,
+        language: selectedLanguage.toLowerCase()
+      });
+      
       const data = await response.json();
       
       if (data.success && data.extractedInfo) {
-        // Update complaint data with extracted information
+        // Update complaint data with extracted information (which will be in English)
         setComplaintData(prev => ({
           ...prev,
           ...data.extractedInfo
         }));
+        
+        console.log("Extracted information:", data.extractedInfo);
       }
     } catch (error) {
       console.error("Error analyzing text:", error);

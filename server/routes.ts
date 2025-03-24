@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/analyze-text', async (req, res) => {
     try {
-      const { text } = req.body;
+      const { text, language } = req.body;
       
       if (!text || typeof text !== 'string') {
         return res.status(400).json({
@@ -145,8 +145,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Extract information from the text
-      const extractedInfo = await extractComplaintInfo(text);
+      // Validate language if provided
+      let validatedLanguage: Language | undefined = undefined;
+      if (language && typeof language === 'string') {
+        // Try to convert the language string to our Language type
+        validatedLanguage = language.toLowerCase() as Language;
+      }
+      
+      // Extract information from the text, passing the language for translation
+      const extractedInfo = await extractComplaintInfo(text, validatedLanguage);
       
       res.json({
         success: true,

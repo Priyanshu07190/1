@@ -52,8 +52,17 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
     if (SpeechRecognition) {
       setHasRecognitionSupport(true);
       const recognitionInstance = new SpeechRecognition();
-      recognitionInstance.continuous = false;
+      
+      // Enable continuous mode for better experience
+      recognitionInstance.continuous = true;
+      
+      // Enable interim results to see text as it's being recognized
       recognitionInstance.interimResults = true;
+      
+      // Set higher confidence threshold for better accuracy
+      recognitionInstance.maxAlternatives = 1;
+      
+      // Set the language based on user selection
       recognitionInstance.lang = languageCodes[currentLanguage] || 'en-IN';
       
       setRecognition(recognitionInstance);
@@ -72,22 +81,43 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
     if (!recognition) return;
     
     const handleResult = (event: any) => {
+      // Show interim results for real-time feedback
+      let interimTranscript = '';
       let finalTranscript = '';
       
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
+        
         if (event.results[i].isFinal) {
           finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
         }
       }
       
+      // Update with final or interim transcript
+      // This allows the user to see what they're saying in real-time
       if (finalTranscript) {
         setTranscript(finalTranscript);
+      } else if (interimTranscript) {
+        setTranscript(interimTranscript);
       }
     };
 
     const handleEnd = () => {
       setIsListening(false);
+      
+      // Restart if we're still set to be listening
+      // This creates a more continuous listening experience
+      if (isListening) {
+        try {
+          setTimeout(() => {
+            recognition.start();
+          }, 200);
+        } catch (error) {
+          console.error('Failed to restart speech recognition:', error);
+        }
+      }
     };
 
     const handleError = (event: any) => {
@@ -104,7 +134,7 @@ export function useSpeechRecognition(): SpeechRecognitionResult {
       recognition.onend = null;
       recognition.onerror = null;
     };
-  }, [recognition]);
+  }, [recognition, isListening]);
 
   const startListening = useCallback((language?: Language) => {
     if (!recognition) return;
