@@ -21,8 +21,8 @@ export default function LandingPage() {
     setSelectedLanguage(language);
     setScreen("home");
     
-    // Update URL to reflect the change
-    setLocation("/home");
+    // Don't update URL here, just show the home screen
+    // This prevents the "page not found" error
   };
 
   // Handle navigation

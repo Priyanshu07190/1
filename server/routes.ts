@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertComplaintSchema, trackingSchema } from "@shared/schema";
+import { insertComplaintSchema, trackingSchema, type Language } from "@shared/schema";
 import { analyzeIncidentType, extractComplaintInfo, sendFIREmail, getSafetyPrecautions } from "./ai";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -63,10 +63,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Continue processing even if email fails
       }
       
-      // Get safety precautions for frontend display
+      // Get safety precautions for frontend display in the user's chosen language
       let safetyPrecautions: string[] = [];
       try {
-        safetyPrecautions = await getSafetyPrecautions(complaint.incidentType);
+        // Use the user's selected language for safety precautions
+        const language = complaint.language as Language || 'english';
+        safetyPrecautions = await getSafetyPrecautions(complaint.incidentType, language);
       } catch (precautionsError) {
         console.error('Failed to get safety precautions:', precautionsError);
       }

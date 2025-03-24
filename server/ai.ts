@@ -158,20 +158,22 @@ Response format:
 }
 
 /**
- * Generates safety precautions based on the cybersecurity incident type
+ * Generates safety precautions based on the cybersecurity incident type in the user's selected language
  */
-export async function getSafetyPrecautions(incidentType: ComplaintType): Promise<string[]> {
+export async function getSafetyPrecautions(incidentType: ComplaintType, language: Language = 'english'): Promise<string[]> {
   try {
-    const prompt = `Provide 5 specific and actionable safety precautions for users who have experienced a ${incidentType.replace('_', ' ')} cybersecurity incident. 
+    const prompt = `Provide 5 specific and actionable safety precautions for users who have experienced a ${incidentType.replace('_', ' ')} cybersecurity incident.
+    The precautions should be in ${language} language.
+    If the language is not English, also provide an English translation for record-keeping purposes.
     Make each precaution concise (1-2 sentences) and specific to this type of incident.
-    Format the response as a JSON array of strings with just the precautions.`;
+    Format the response as a JSON array of strings with just the precautions in the requested language.`;
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       safetySettings,
       generationConfig: {
         temperature: 0.5,
-        maxOutputTokens: 500,
+        maxOutputTokens: 800,
       },
     });
 
@@ -182,7 +184,67 @@ export async function getSafetyPrecautions(incidentType: ComplaintType): Promise
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
     const jsonString = jsonMatch ? jsonMatch[0] : "[]";
     
-    return JSON.parse(jsonString);
+    // Try to parse the JSON
+    try {
+      return JSON.parse(jsonString);
+    } catch (jsonError) {
+      console.error('Error parsing JSON for safety precautions:', jsonError);
+      
+      // Fallback precautions
+      if (language === 'english') {
+        return [
+          "Change passwords for all your accounts immediately.",
+          "Enable two-factor authentication where available.",
+          "Monitor your financial statements regularly for unusual activity.",
+          "Be cautious of suspicious emails, messages, or calls.",
+          "Report the incident to relevant authorities if necessary."
+        ];
+      } else {
+        // Get translated fallback precautions
+        const fallbackPrompt = `Translate the following 5 cybersecurity safety precautions into ${language} language:
+        1. Change passwords for all your accounts immediately.
+        2. Enable two-factor authentication where available.
+        3. Monitor your financial statements regularly for unusual activity.
+        4. Be cautious of suspicious emails, messages, or calls.
+        5. Report the incident to relevant authorities if necessary.
+        
+        Respond with ONLY a JSON array of the 5 translated strings.`;
+        
+        try {
+          const fallbackResult = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: fallbackPrompt }] }],
+            safetySettings,
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 500,
+            },
+          });
+          
+          const fallbackResponse = fallbackResult.response;
+          const fallbackText = fallbackResponse.text();
+          
+          // Extract JSON array
+          const fallbackJsonMatch = fallbackText.match(/\[[\s\S]*\]/);
+          const fallbackJsonString = fallbackJsonMatch ? fallbackJsonMatch[0] : "[]";
+          
+          const fallbackPrecautions = JSON.parse(fallbackJsonString);
+          if (Array.isArray(fallbackPrecautions) && fallbackPrecautions.length > 0) {
+            return fallbackPrecautions;
+          }
+        } catch (fallbackError) {
+          console.error('Error generating fallback translated precautions:', fallbackError);
+        }
+        
+        // If all else fails, return English precautions
+        return [
+          "Change passwords for all your accounts immediately.",
+          "Enable two-factor authentication where available.",
+          "Monitor your financial statements regularly for unusual activity.",
+          "Be cautious of suspicious emails, messages, or calls.",
+          "Report the incident to relevant authorities if necessary."
+        ];
+      }
+    }
   } catch (error) {
     console.error('Error generating safety precautions:', error);
     return [
@@ -239,8 +301,9 @@ export async function sendFIREmail(complaint: any): Promise<boolean> {
     for any follow-up inquiries.
     `;
 
-    // Get safety precautions for this incident type
-    const precautions = await getSafetyPrecautions(complaint.incidentType);
+    // Get safety precautions for this incident type in the user's language
+    const language = complaint.language as Language || 'english';
+    const precautions = await getSafetyPrecautions(complaint.incidentType, language);
     
     // HTML email template with precautions
     const htmlContent = `
